@@ -446,6 +446,11 @@ class tt_device
         throw std::runtime_error("---- tt_device::dram_membar is not implemented\n");
     }
 
+    // Custom workaround to ensure memory consistency
+    virtual void flush_region(const chip_id_t chip, void *vaddr, uint64_t size) {
+        throw std::runtime_error("---- tt_device::flush_region is not implemented\n");
+    }
+
     // Misc. Functions to Query/Set Device State
     /**
     * @brief Query post harvesting SOC descriptors from UMD in virtual coordinates. 
@@ -775,6 +780,8 @@ class tt_SiliconDevice: public tt_device
     void l1_membar(const chip_id_t chip, const std::string& fallback_tlb, const std::unordered_set<tt_xy_pair>& cores = {});
     void dram_membar(const chip_id_t chip, const std::string& fallback_tlb, const std::unordered_set<uint32_t>& channels);
     void dram_membar(const chip_id_t chip, const std::string& fallback_tlb, const std::unordered_set<tt_xy_pair>& cores = {});
+    // Custom workaround to ensure memory consistency
+    virtual void flush_region(const chip_id_t chip, void *vaddr, uint64_t size);
     // These functions are used by Debuda, so make them public
     void bar_write32 (int logical_device_id, uint32_t addr, uint32_t data);
     uint32_t bar_read32 (int logical_device_id, uint32_t addr);

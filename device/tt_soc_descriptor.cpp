@@ -5,6 +5,7 @@
 #include "tt_soc_descriptor.h"
 
 #include <assert.h>
+#include <cstdint>
 #include <fstream>
 #include <iostream>
 #include <regex>

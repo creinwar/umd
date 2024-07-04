@@ -437,18 +437,34 @@ void TTDevice::do_open() {
     for (unsigned int i = 0; i < mappings.query_mappings.in.output_mapping_count; i++) {
         if (mappings.mapping_array[i].mapping_id == TENSTORRENT_MAPPING_RESOURCE0_UC) {
             bar0_uc_mapping = mappings.mapping_array[i];
+            std::cout << "Mapping " << i << " of resource 0 UC" << std::endl;
+            std::cout << "ID: " << mappings.mapping_array[i].mapping_id << std::endl;
+            std::cout << " mapping_base: " << std::hex << mappings.mapping_array[i].mapping_base << std::endl;
+            std::cout << " mapping_size: " << std::hex << mappings.mapping_array[i].mapping_size << std::endl << std::endl;
         }
 
         if (mappings.mapping_array[i].mapping_id == TENSTORRENT_MAPPING_RESOURCE0_WC) {
             bar0_wc_mapping = mappings.mapping_array[i];
+            std::cout << "Mapping " << i << " of resource 0 WC" << std::endl;
+            std::cout << "ID: " << mappings.mapping_array[i].mapping_id << std::endl;
+            std::cout << " mapping_base: " << std::hex << mappings.mapping_array[i].mapping_base << std::endl;
+            std::cout << " mapping_size: " << std::hex << mappings.mapping_array[i].mapping_size << std::endl << std::endl;
         }
 
         if (mappings.mapping_array[i].mapping_id == TENSTORRENT_MAPPING_RESOURCE2_UC) {
             bar2_uc_mapping = mappings.mapping_array[i];
+            std::cout << "Mapping " << i << " of resource 2 UC" << std::endl;
+            std::cout << "ID: " << mappings.mapping_array[i].mapping_id << std::endl;
+            std::cout << " mapping_base: " << std::hex << mappings.mapping_array[i].mapping_base << std::endl;
+            std::cout << " mapping_size: " << std::hex << mappings.mapping_array[i].mapping_size << std::endl << std::endl;
         }
 
         if (mappings.mapping_array[i].mapping_id == TENSTORRENT_MAPPING_RESOURCE2_WC) {
             bar2_wc_mapping = mappings.mapping_array[i];
+            std::cout << "Mapping " << i << " of resource 2 WC" << std::endl;
+            std::cout << "ID: " << mappings.mapping_array[i].mapping_id << std::endl;
+            std::cout << " mapping_base: " << std::hex << mappings.mapping_array[i].mapping_base << std::endl;
+            std::cout << " mapping_size: " << std::hex << mappings.mapping_array[i].mapping_size << std::endl << std::endl;
         }
     }
 
@@ -457,7 +473,7 @@ void TTDevice::do_open() {
     }
 
     // Attempt WC mapping first so we can fall back to all-UC if it fails.
-    if (bar0_wc_mapping.mapping_id == TENSTORRENT_MAPPING_RESOURCE0_WC) {
+    /*if (bar0_wc_mapping.mapping_id == TENSTORRENT_MAPPING_RESOURCE0_WC) {
         bar0_wc_size = std::min<size_t>(bar0_wc_mapping.mapping_size, GS_BAR0_WC_MAPPING_SIZE);
         bar0_wc = mmap(NULL, bar0_wc_size, PROT_READ | PROT_WRITE, MAP_SHARED, device_fd, bar0_wc_mapping.mapping_base);
         if (bar0_wc == MAP_FAILED) {
@@ -470,11 +486,11 @@ void TTDevice::do_open() {
         // The bottom part of the BAR is mapped WC. Map the top UC.
         bar0_uc_size = bar0_uc_mapping.mapping_size - GS_BAR0_WC_MAPPING_SIZE;
         bar0_uc_offset = GS_BAR0_WC_MAPPING_SIZE;
-    } else {
+    } else {*/
         // No WC mapping, map the entire BAR UC.
         bar0_uc_size = bar0_uc_mapping.mapping_size;
         bar0_uc_offset = 0;
-    }
+    //}
 
     bar0_uc = mmap(NULL, bar0_uc_size, PROT_READ | PROT_WRITE, MAP_SHARED, device_fd, bar0_uc_mapping.mapping_base + bar0_uc_offset);
 
@@ -485,6 +501,10 @@ void TTDevice::do_open() {
     if (!bar0_wc) {
         bar0_wc = bar0_uc;
     }
+
+    std::cout << "*** tt_silicon_driver: bar0_wc = 0x" << std::hex << (uint64_t) bar0_wc << std::endl;
+    std::cout << "*** tt_silicon_driver: bar0_uc = 0x" << std::hex << (uint64_t) bar0_uc << std::endl;
+
 
     if (is_wormhole(device_info.out)) {
         if (bar2_uc_mapping.mapping_id != TENSTORRENT_MAPPING_RESOURCE2_UC) {
@@ -506,6 +526,19 @@ void TTDevice::do_open() {
     pci_bus = device_info.out.bus_dev_fn >> 8;
     pci_device = PCI_SLOT(device_info.out.bus_dev_fn);
     pci_function = PCI_FUNC(device_info.out.bus_dev_fn);
+
+
+    // Test cache flushing capabilities
+    struct tenstorrent_sg2042_flush test_flush;
+    memset(&test_flush, 0, sizeof(test_flush));
+    test_flush.virtual_address = (uint64_t) &test_flush;
+    test_flush.size            = (uint64_t) 4096;
+
+    if(ioctl(device_fd, TENSTORRENT_IOCTL_SG2042_FLUSH, &test_flush) == -1){
+      std::cout << "Flushing failed!\n";
+    } else {
+      std::cout << "Flushing successful!\n";
+    }
 }
 
 void set_debug_level(int dl) {
@@ -692,6 +725,11 @@ DMAbuffer allocate_dma_buffer(TTDevice *ttdev, unsigned int buffer_index, std::s
     dmabuf.pBuf = mapping;
     dmabuf.pDma = allocate_dma_buf.out.physical_address;
     dmabuf.size = allocate_dma_buf.out.size;
+
+    std::cout << "--- after allocate_dma_buf ---" << std::endl;
+    std::cout << "pBuf: 0x" << std::hex << mapping << std::endl;
+    std::cout << "pDma: 0x" << std::hex << allocate_dma_buf.out.physical_address << std::endl;
+    std::cout << "size: 0x" << std::hex << allocate_dma_buf.out.size << std::endl;
 
     ttdev->dma_buffer_mappings.push_back(dmabuf);
 
@@ -925,6 +963,7 @@ void memcpy_from_device(void *dest, const void *src, std::size_t num_bytes) {
 void read_block(TTDevice *dev, uint32_t byte_addr, uint32_t num_bytes, uint8_t* buffer_addr, uint32_t dma_buf_size) {
     if (num_bytes >= g_DMA_BLOCK_SIZE_READ_THRESHOLD_BYTES && g_DMA_BLOCK_SIZE_READ_THRESHOLD_BYTES > 0) {
         record_access ("read_block_a", byte_addr, num_bytes, true, false, true, true); // addr, size, turbo, write, block, endline
+        LOG1("read_block_dma: addr = 0x%lx, len = 0x%lx", byte_addr, num_bytes);
 
         DMAbuffer &transfer_buffer = dev->dma_transfer_buffer;
 
@@ -933,6 +972,7 @@ void read_block(TTDevice *dev, uint32_t byte_addr, uint32_t num_bytes, uint8_t* 
         while (num_bytes > 0) {
             uint32_t transfered_bytes = std::min<uint32_t>(num_bytes, dma_buf_size);
             pcie_dma_transfer_turbo (dev, byte_addr, host_phys_addr, transfered_bytes, false);
+	    __asm volatile("fence" ::: "memory");
             memcpy (buffer_addr, (void*)host_user_addr, transfered_bytes);
             num_bytes -= transfered_bytes;
             byte_addr += transfered_bytes;
@@ -942,6 +982,7 @@ void read_block(TTDevice *dev, uint32_t byte_addr, uint32_t num_bytes, uint8_t* 
     }
 
     record_access("read_block_b", byte_addr, num_bytes, false, false, true, false); // addr, size, turbo, write, block, endline
+    LOG1("read_block_non_dma: addr = 0x%lx, len = 0x%lx", byte_addr, num_bytes);
 
     void *reg_mapping;
     if (dev->system_reg_mapping != nullptr && byte_addr >= dev->system_reg_start_offset) {
@@ -953,6 +994,9 @@ void read_block(TTDevice *dev, uint32_t byte_addr, uint32_t num_bytes, uint8_t* 
 
     const void *src = reinterpret_cast<const char *>(reg_mapping) + byte_addr;
     void *dest = reinterpret_cast<void *>(buffer_addr);
+
+    
+    __asm volatile("fence" ::: "memory");
 
 #ifndef DISABLE_ISSUE_3487_FIX
     memcpy_from_device(dest, src, num_bytes);
@@ -1119,11 +1163,13 @@ void read_regs(TTDevice *dev, uint32_t byte_addr, uint32_t word_len, void *data)
     const volatile uint32_t *src = register_address<std::uint32_t>(dev, byte_addr);
     uint32_t *dest = reinterpret_cast<uint32_t*>(data);
 
+    LOG2("mapped register address = 0x%0lx REG ", (uint64_t) src);
+
     while (word_len-- != 0) {
         uint32_t temp = *src++;
         memcpy(dest++, &temp, sizeof(temp));
     }
-    LOG2(" REG ");
+    //LOG2(" REG ");
     print_buffer (data, std::min(g_NUM_BYTES_TO_PRINT, word_len * 4), true);
 }
 
@@ -2095,6 +2141,8 @@ void tt_SiliconDevice::read_dma_buffer(
       throw std::runtime_error(err_msg);
     }
 
+    __asm volatile("fence" ::: "memory");
+
     LOG1("---- tt_SiliconDevice::read_dma_buffer (src_device_id: %d, ch: %d) from 0x%lx\n",  src_device_id, channel, user_scratchspace);
     
     memcpy(mem_ptr, user_scratchspace, size_in_bytes);
@@ -2647,7 +2695,7 @@ bool tt_SiliconDevice::init_hugepage(chip_id_t device_id) {
         hugepage_mapping_size.at(device_id).at(ch) = mapping_size;
         hugepage_physical_address.at(device_id).at(ch) = pin_pages.out.physical_address;
 
-        LOG1("---- ttSiliconDevice::init_hugepage: physical_device_id: %d ch: %d mapping_size: %d physical address 0x%llx\n", physical_device_id, ch, mapping_size, (unsigned long long)hugepage_physical_address.at(device_id).at(ch));
+        LOG1("---- ttSiliconDevice::init_hugepage: physical_device_id: %d ch: %d mapping_size: %d virtual address: 0x%llx physical address 0x%llx\n", physical_device_id, ch, mapping_size, (unsigned long long) mapping, (unsigned long long)hugepage_physical_address.at(device_id).at(ch));
 
     }
 
@@ -4274,6 +4322,18 @@ void tt_SiliconDevice::read_from_device(std::vector<uint32_t> &vec, tt_cxy_pair 
     read_from_device(vec.data(), core, addr, size, fallback_tlb);
 }
 
+void tt_SiliconDevice::flush_region(const chip_id_t chip, void *vaddr, uint64_t size) {
+    struct tenstorrent_sg2042_flush flush;
+    memset(&flush, 0, sizeof(flush));
+    flush.virtual_address = (uint64_t) vaddr;
+    flush.size            = size;
+
+    auto &fd = m_pci_device_map.at(chip)->hdev->device_fd;
+
+    if(ioctl(fd, TENSTORRENT_IOCTL_SG2042_FLUSH, &flush) == -1) {
+        WARN("---- ttSiliconDevice::flush_region: Flushing the region [0x%lx, 0x%lx) using the kernel driver failed!\n", (uint64_t) vaddr, (uint64_t) vaddr + size);
+    }
+}
 
 int tt_SiliconDevice::arc_msg(int logical_device_id, uint32_t msg_code, bool wait_for_done, uint32_t arg0, uint32_t arg1, int timeout, uint32_t *return_3, uint32_t *return_4) {
     if(ndesc -> is_chip_mmio_capable(logical_device_id)) {
